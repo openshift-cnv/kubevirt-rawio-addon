@@ -1,0 +1,49 @@
+# Example VM with rawio support on OpenShift.
+# Requires the service account and SCC from serviceaccount.yaml and scc.yaml.
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: rawio-test-vm
+  namespace: my-namespace
+  annotations:
+    kubevirt.io/rawioSupport: "lun0"
+spec:
+  running: true
+  template:
+    metadata:
+      annotations:
+        # Comma-separated list of volume names that need rawio.
+        # Must match the LUN volume names below.
+        kubevirt.io/rawioSupport: "lun0"
+    spec:
+      domain:
+        resources:
+          requests:
+            memory: 512Mi
+        devices:
+          rng: {}
+          disks:
+            - name: disk0
+              disk:
+                bus: virtio
+            # The LUN disk will appear as /dev/sda in the guest since
+            # virtio disks use the vd* prefix.
+            - name: lun0
+              lun:
+                bus: scsi
+            # Disk entry for the service account volume.
+            - name: rawio-vm
+              disk:
+                bus: virtio
+      volumes:
+        - name: disk0
+          containerDisk:
+            image: quay.io/kubevirt/fedora-with-test-tooling:v20240717-a087e7e
+        - name: lun0
+          persistentVolumeClaim:
+            claimName: my-pvc
+        # Service account volume — causes the virt-launcher pod to use this
+        # SA, which must have an SCC granting rawio capabilities (see scc.yaml).
+        - name: rawio-vm
+          serviceAccount:
+            serviceAccountName: rawio-vm

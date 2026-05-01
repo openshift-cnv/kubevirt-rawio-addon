@@ -1,0 +1,40 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+  - scc.yaml
+  - validating-webhook.yaml
+  - rbac-scc-review.yaml
+
+patches:
+  - target:
+      kind: Service
+      name: rawio-webhook
+    patch: |
+      - op: add
+        path: /metadata/annotations
+        value:
+          service.beta.openshift.io/serving-cert-secret-name: rawio-webhook-tls
+  - target:
+      kind: MutatingWebhookConfiguration
+      name: rawio-webhook
+    patch: |
+      - op: add
+        path: /metadata/annotations
+        value:
+          service.beta.openshift.io/inject-cabundle: "true"
+  - target:
+      kind: Deployment
+      name: rawio-webhook
+    patch: |
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: ENABLE_SCC_VALIDATION
+          value: "true"
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: VIRT_CONTROLLER_SA
+          value: "system:serviceaccount:openshift-cnv:kubevirt-controller"

@@ -1,0 +1,36 @@
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: rawio-virt-controller
+priority: 11
+allowPrivilegedContainer: false
+allowHostDirVolumePlugin: true
+allowHostNetwork: false
+allowHostPorts: false
+allowHostPID: false
+allowHostIPC: false
+allowedCapabilities:
+  - NET_BIND_SERVICE
+  - SYS_NICE
+  - SYS_RAWIO
+  - SETFCAP
+defaultAddCapabilities: []
+seccompProfiles:
+  - runtime/default
+  - unconfined
+  - localhost/kubevirt/kubevirt.json
+volumes:
+  - "*"
+readOnlyRootFilesystem: false
+runAsUser:
+  type: RunAsAny
+seLinuxContext:
+  type: RunAsAny
+fsGroup:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+users:
+  - system:serviceaccount:openshift-cnv:kubevirt-controller
+  #- system:serviceaccount:kubevirt:kubevirt-controller
+groups: []

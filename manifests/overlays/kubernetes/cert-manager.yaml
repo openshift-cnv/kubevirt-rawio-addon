@@ -1,0 +1,21 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: rawio-webhook-selfsigned
+  namespace: kubevirt-rawio-addon
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: rawio-webhook-tls
+  namespace: kubevirt-rawio-addon
+spec:
+  secretName: rawio-webhook-tls
+  dnsNames:
+    - rawio-webhook.kubevirt-rawio-addon.svc
+    - rawio-webhook.kubevirt-rawio-addon.svc.cluster.local
+  issuerRef:
+    name: rawio-webhook-selfsigned
+    kind: Issuer

@@ -1,0 +1,73 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  IMAGE_REGISTRY: ghcr.io/mhenriks
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+
+      - name: Test
+        run: go test ./...
+
+      - name: Extract tag
+        id: tag
+        run: echo "version=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: mhenriks
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Build and push webhook image
+        run: |
+          podman build -f Dockerfile.webhook -t ${{ env.IMAGE_REGISTRY }}/rawio-webhook:${{ steps.tag.outputs.version }} .
+          podman push ${{ env.IMAGE_REGISTRY }}/rawio-webhook:${{ steps.tag.outputs.version }}
+
+      - name: Build and push sidecar-hook image
+        run: |
+          podman build -f Dockerfile.sidecar-hook -t ${{ env.IMAGE_REGISTRY }}/rawio-sidecar-hook:${{ steps.tag.outputs.version }} .
+          podman push ${{ env.IMAGE_REGISTRY }}/rawio-sidecar-hook:${{ steps.tag.outputs.version }}
+
+      - name: Install kustomize
+        run: |
+          curl -sL "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Generate OpenShift release YAML
+        run: |
+          kustomize build manifests/overlays/openshift/ | \
+            sed "s|rawio-webhook:latest|${{ env.IMAGE_REGISTRY }}/rawio-webhook:${{ steps.tag.outputs.version }}|g; \
+                 s|rawio-sidecar-hook:latest|${{ env.IMAGE_REGISTRY }}/rawio-sidecar-hook:${{ steps.tag.outputs.version }}|g" \
+            > rawio-addon-openshift.yaml
+
+      - name: Generate Kubernetes release YAML
+        run: |
+          kustomize build manifests/overlays/kubernetes/ | \
+            sed "s|rawio-webhook:latest|${{ env.IMAGE_REGISTRY }}/rawio-webhook:${{ steps.tag.outputs.version }}|g; \
+                 s|rawio-sidecar-hook:latest|${{ env.IMAGE_REGISTRY }}/rawio-sidecar-hook:${{ steps.tag.outputs.version }}|g" \
+            > rawio-addon-kubernetes.yaml
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            rawio-addon-openshift.yaml
+            rawio-addon-kubernetes.yaml

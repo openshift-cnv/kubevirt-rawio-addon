@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+env:
+  IMAGE_REGISTRY: ghcr.io/mhenriks
+  GO_VERSION: "1.26"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test
+        run: go test ./...
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.12.0
+
+      - name: Build webhook image
+        run: podman build -f Dockerfile.webhook .
+
+      - name: Build sidecar-hook image
+        run: podman build -f Dockerfile.sidecar-hook .
+
+  push-latest:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: mhenriks
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Build and push webhook image
+        run: |
+          podman build -f Dockerfile.webhook -t ${{ env.IMAGE_REGISTRY }}/rawio-webhook:latest .
+          podman push ${{ env.IMAGE_REGISTRY }}/rawio-webhook:latest
+
+      - name: Build and push sidecar-hook image
+        run: |
+          podman build -f Dockerfile.sidecar-hook -t ${{ env.IMAGE_REGISTRY }}/rawio-sidecar-hook:latest .
+          podman push ${{ env.IMAGE_REGISTRY }}/rawio-sidecar-hook:latest

@@ -1,0 +1,44 @@
+# SCC that permits the capabilities required for rawio support.
+# Must be bound to the VM's service account (see serviceaccount.yaml).
+# Update the users list to match your namespace and service account name.
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: rawio-vm
+# Higher than the default kubevirt SCC (priority 10) so this SCC is
+# selected for pods that need rawio capabilities.
+priority: 11
+allowPrivilegedContainer: false
+allowHostDirVolumePlugin: true
+allowHostNetwork: false
+allowHostPorts: false
+allowHostPID: false
+allowHostIPC: false
+# SYS_RAWIO and SETFCAP are added by the rawio pod mutating webhook.
+# NET_BIND_SERVICE and SYS_NICE are standard kubevirt capabilities.
+allowedCapabilities:
+  - NET_BIND_SERVICE
+  - SYS_NICE
+  - SYS_RAWIO
+  - SETFCAP
+defaultAddCapabilities: []
+seccompProfiles:
+  - runtime/default
+  - unconfined
+  - localhost/kubevirt/kubevirt.json
+volumes:
+  - "*"
+readOnlyRootFilesystem: false
+# RunAsAny is required because virt-launcher runs as root when
+# runtimeUser=0 is set by the VMI mutating webhook.
+runAsUser:
+  type: RunAsAny
+seLinuxContext:
+  type: RunAsAny
+fsGroup:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+users:
+  - system:serviceaccount:my-namespace:rawio-vm
+groups: []
