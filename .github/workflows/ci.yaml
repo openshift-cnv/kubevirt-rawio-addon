@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 env:
-  IMAGE_REGISTRY: ghcr.io/mhenriks
+  IMAGE_REGISTRY: quay.io/kubevirt
   GO_VERSION: "1.26"
 
 jobs:
@@ -41,17 +41,15 @@ jobs:
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    permissions:
-      packages: write
     steps:
       - uses: actions/checkout@v4
 
-      - name: Login to ghcr.io
+      - name: Login to quay.io
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
-          username: mhenriks
-          password: ${{ secrets.GHCR_TOKEN }}
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD }}
 
       - name: Build and push webhook image
         run: |
