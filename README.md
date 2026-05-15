@@ -2,7 +2,7 @@
 
 Enables RAW IO support for LUN disks where KubeVirt does not yet support it natively.
 
-Upstream support is tracked at [kubevirt/enhancements#259](https://github.com/kubevirt/enhancements/issues/259). This addon bridges the gap for OpenShift Virtualization 4.20, 4.21, and 4.22 (and their upstream KubeVirt equivalents).
+Upstream support is tracked at [kubevirt/enhancements#259](https://github.com/kubevirt/enhancements/issues/259). This addon bridges the gap for OpenShift Virtualization 4.20+ and upstream KubeVirt 1.6+.
 
 ## How it works
 
@@ -39,7 +39,7 @@ The addon provides the following components:
 2. **Pod mutating webhook** — adds `SYS_RAWIO` and `SETFCAP` capabilities to the compute container and prepends a `setcap` command to grant `qemu-kvm` the required capabilities
 3. **Pod validating webhook** (OpenShift only) — validates that the pod's service account has an SCC permitting the required security context (capabilities, root execution, etc.) via the `PodSecurityPolicySubjectReview` API, similar to how OpenShift validates pods created by Deployments/ReplicaSets
 4. **Sidecar hook** — an `onDefineDomain` binary (invoked by the kubevirt sidecar-shim) that sets `rawio="yes"` on matching `<disk>` elements in the libvirt domain XML
-5. **SecurityContextConstraints** (OpenShift only) — allows `SYS_RAWIO` and `SETFCAP` for virt-controller pods, with priority 11 (higher than the default kubevirt SCC)
+5. **SecurityContextConstraints** (OpenShift only) — allows `SYS_RAWIO` and `SETFCAP` capabilities for virt-launcher pods
 
 ## Build
 
