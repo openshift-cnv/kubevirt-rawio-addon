@@ -5,9 +5,6 @@ apiVersion: security.openshift.io/v1
 kind: SecurityContextConstraints
 metadata:
   name: rawio-vm
-# Higher than the default kubevirt SCC (priority 10) so this SCC is
-# selected for pods that need rawio capabilities.
-priority: 11
 allowPrivilegedContainer: false
 allowHostDirVolumePlugin: true
 allowHostNetwork: false
