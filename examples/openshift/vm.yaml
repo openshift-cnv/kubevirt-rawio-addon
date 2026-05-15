@@ -41,7 +41,7 @@ spec:
             image: quay.io/kubevirt/fedora-with-test-tooling:v20240717-a087e7e
         - name: lun0
           persistentVolumeClaim:
-            claimName: my-pvc
+            claimName: scsi-rawio-pvc
         # Service account volume — causes the virt-launcher pod to use this
         # SA, which must have an SCC granting rawio capabilities (see scc.yaml).
         - name: rawio-vm
