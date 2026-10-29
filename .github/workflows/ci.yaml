@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 env:
-  IMAGE_REGISTRY: quay.io/openshift-cnv
+  IMAGE_REGISTRY: quay.io/kubevirt
   GO_VERSION: "1.26"
 
 jobs:

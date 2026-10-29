@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := build
 
-IMAGE_REGISTRY ?= quay.io/openshift-cnv
+IMAGE_REGISTRY ?= quay.io/kubevirt
 IMAGE_TAG ?= latest
 WEBHOOK_IMAGE ?= $(IMAGE_REGISTRY)/rawio-webhook:$(IMAGE_TAG)
 SIDECAR_IMAGE ?= $(IMAGE_REGISTRY)/rawio-sidecar-hook:$(IMAGE_TAG)
