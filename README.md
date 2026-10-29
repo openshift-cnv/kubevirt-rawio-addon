@@ -114,6 +114,72 @@ Upstream Kubernetes requires [cert-manager](https://cert-manager.io/docs/install
 
 This installs the webhook, RBAC, and a self-signed cert-manager Certificate for the webhook TLS.
 
+## Optional: restrict hook sidecars to this addon
+
+The `Sidecar` feature gate enables hook sidecars cluster-wide. Cluster administrators
+can optionally install a ValidatingAdmissionPolicy to restrict new hook sidecar
+configurations to this addon. This requires Kubernetes 1.30+ with
+ValidatingAdmissionPolicy enabled, and applies across all namespaces.
+
+```sh
+make deploy-openshift RESTRICT_SIDECARS=true IMAGE_REGISTRY=quay.io/myorg IMAGE_TAG=v1.0.0
+# Or: make deploy-kubernetes RESTRICT_SIDECARS=true ...
+```
+
+The policy rejects hook annotations in VM templates. Continue requesting RAW IO
+using `spec.template.metadata.annotations["kubevirt.io/rawioSupport"]`; the webhook
+injects the approved hook configuration into the VMI. New or changed VMI hook
+annotations must exactly match the generated addon configuration and have a
+nonempty RAW IO annotation. Additional sidecars, arguments, ConfigMap scripts,
+and other overrides are rejected. Removing the VMI hook annotation is allowed.
+
+The policy compares the entire annotation string, including JSON formatting. It
+restricts the admitted configuration; it does not prove who authored it or replace
+the pod service account SCC requirement. Pin `SIDECAR_IMAGE` to an image digest
+when immutable image identity is required.
+
+### Rendering and releases
+
+The policy is separate from the default installation. Releases include an optional
+`rawio-addon-sidecar-policy.yaml` generated with the release's sidecar image.
+Apply that file before applying the corresponding addon release YAML.
+
+For custom deployments or GitOps, render it using the same image settings as the addon:
+
+```sh
+make manifests-sidecar-policy IMAGE_REGISTRY=quay.io/myorg IMAGE_TAG=v1.0.0 > sidecar-policy.yaml
+kubectl apply -f sidecar-policy.yaml
+```
+
+`SIDECAR_IMAGE` overrides are supported by both the addon and policy targets.
+The checked-in `manifests/optional/sidecar-policy.yaml` is a template; render it
+before installation.
+
+### Upgrades and existing VMIs
+
+On VMI updates, an unchanged hook annotation is allowed even if it references an
+older addon image. Existing VMIs therefore remain updatable after an addon
+upgrade; newly created VMIs receive the current sidecar. No historical image
+allowlist is needed. A recreated VMI is a new admission request, so explicitly
+copying an old hook annotation into it is not supported.
+
+Keep `RESTRICT_SIDECARS=true` on subsequent deployments so the policy is updated
+before the webhook. With release YAML or GitOps, preserve that same ordering.
+During webhook rollout, requests injected by old webhook replicas can be rejected
+until those replicas are replaced; retry creation after rollout completes.
+
+The unchanged-value exception also preserves arbitrary sidecar configurations
+that existed before policy installation. Review existing VMIs before enabling it;
+the policy does not remove running sidecars. Existing VM templates containing hook
+annotations must have those annotations removed before they can be updated.
+
+Setting `RESTRICT_SIDECARS=false` does not remove an installed policy. To explicitly
+disable the restriction, including after uninstalling the addon:
+
+```sh
+make undeploy-sidecar-policy
+```
+
 ## Uninstall
 
 ```sh

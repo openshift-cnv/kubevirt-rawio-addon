@@ -6,7 +6,7 @@ on:
       - "v*"
 
 env:
-  IMAGE_REGISTRY: quay.io/kubevirt
+  IMAGE_REGISTRY: quay.io/openshift-cnv
 
 jobs:
   release:
@@ -61,6 +61,9 @@ jobs:
                  s|rawio-sidecar-hook:latest|${{ env.IMAGE_REGISTRY }}/rawio-sidecar-hook:${{ steps.tag.outputs.version }}|g" \
             > rawio-addon-kubernetes.yaml
 
+      - name: Generate optional sidecar policy YAML
+        run: make manifests-sidecar-policy IMAGE_TAG="${{ steps.tag.outputs.version }}" > rawio-addon-sidecar-policy.yaml
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -68,3 +71,4 @@ jobs:
           files: |
             rawio-addon-openshift.yaml
             rawio-addon-kubernetes.yaml
+            rawio-addon-sidecar-policy.yaml

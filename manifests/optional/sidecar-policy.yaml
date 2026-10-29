@@ -1,0 +1,54 @@
+# Render with `make manifests-sidecar-policy` before applying.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: rawio-hook-sidecars
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    matchPolicy: Equivalent
+    resourceRules:
+      - apiGroups: ["kubevirt.io"]
+        apiVersions: ["v1", "v1alpha3"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["virtualmachines", "virtualmachineinstances"]
+  variables:
+    - name: isVMI
+      expression: request.resource.resource == 'virtualmachineinstances'
+    - name: annotations
+      expression: "has(object.metadata.annotations) ? object.metadata.annotations : {}"
+    - name: oldAnnotations
+      expression: "oldObject != null && has(oldObject.metadata.annotations) ? oldObject.metadata.annotations : {}"
+    - name: hookKey
+      expression: "'hooks.kubevirt.io/hookSidecars'"
+  validations:
+    # Users request RAW IO on the VM; the webhook owns hook injection on the VMI.
+    # Use dynamic access because VMI specs have no template and KubeVirt's VM
+    # schema preserves template metadata without declaring its annotation fields.
+    - expression: >-
+        variables.isVMI ||
+        !has(dyn(object.spec).template) ||
+        !has(dyn(object.spec).template.metadata) ||
+        !has(dyn(object.spec).template.metadata.annotations) ||
+        !(variables.hookKey in dyn(object.spec).template.metadata.annotations)
+      message: "VM templates must not set hooks.kubevirt.io/hookSidecars; use kubevirt.io/rawioSupport to request RAW IO."
+    # Grandfather unchanged values so upgrading the addon does not block VMI updates.
+    # Compare the full string to reject additional hooks, arguments, and ConfigMaps.
+    - expression: >-
+        !variables.isVMI ||
+        !(variables.hookKey in variables.annotations) ||
+        (request.operation == 'UPDATE' &&
+         variables.hookKey in variables.oldAnnotations &&
+         variables.annotations[variables.hookKey] == variables.oldAnnotations[variables.hookKey]) ||
+        ('kubevirt.io/rawioSupport' in variables.annotations &&
+         variables.annotations['kubevirt.io/rawioSupport'] != '' &&
+         variables.annotations[variables.hookKey] == '[{"image":"rawio-sidecar-hook:latest","imagePullPolicy":"IfNotPresent"}]')
+      message: "New or changed hook sidecars must exactly match the current RAW IO addon configuration and include kubevirt.io/rawioSupport."
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: rawio-hook-sidecars
+spec:
+  policyName: rawio-hook-sidecars
+  validationActions: [Deny]
